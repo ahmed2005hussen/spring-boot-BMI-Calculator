@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BMI Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0d0f12;
+    --surface: #161a20;
+    --surface2: #1e242d;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #f0ede8;
+    --muted: #7a8090;
+    --accent: #c8f564;
+    --accent-dim: rgba(200,245,100,0.12);
+    --accent-dim2: rgba(200,245,100,0.06);
+    --danger: #ff6b6b;
+    --danger-dim: rgba(255,107,107,0.1);
+    --blue: #64b5f6;
+    --blue-dim: rgba(100,181,246,0.1);
+    --amber: #ffc96b;
+    --amber-dim: rgba(255,201,107,0.1);
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background blobs */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(200,245,100,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -200px; left: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(100,181,246,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .layout {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--surface);
+    border-right: 0.5px solid var(--border);
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .brand-icon svg { width: 18px; height: 18px; }
+  .brand-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+
+  .nav { display: flex; flex-direction: column; gap: 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    transition: all 0.18s;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--accent-dim); color: var(--accent); }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border);
+  }
+  .server-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Main */
+  .main {
+    padding: 2.5rem 3rem;
+    overflow-y: auto;
+  }
+
+  .page { display: none; animation: fadein 0.25s ease; }
+  .page.active { display: block; }
+  @keyframes fadein { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* Page header */
+  .page-header { margin-bottom: 2rem; }
+  .page-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .page-title em { color: var(--accent); font-style: italic; }
+  .page-sub { font-size: 14px; color: var(--muted); margin-top: 6px; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+  .card + .card { margin-top: 1rem; }
+
+  /* Form elements */
+  .field { margin-bottom: 1.25rem; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  input[type="number"], input[type="text"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.18s;
+  }
+  input[type="number"]:focus, input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+  input::placeholder { color: var(--muted); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+  /* Toggle */
+  .toggle {
+    display: flex;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    gap: 4px;
+  }
+  .toggle-btn {
+    flex: 1; padding: 8px 12px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .toggle-btn.active {
+    background: var(--accent);
+    color: #0d0f12;
+    font-weight: 500;
+  }
+
+  /* Primary button */
+  .btn {
+    width: 100%;
+    padding: 13px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--accent);
+    color: #0d0f12;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.18s, transform 0.12s;
+    margin-top: 0.5rem;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn:active { transform: scale(0.98); }
+  .btn-ghost {
+    background: transparent;
+    border: 0.5px solid var(--border2);
+    color: var(--text);
+  }
+  .btn-ghost:hover { background: var(--surface2); opacity: 1; }
+
+  /* Result display */
+  .result-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    margin-top: 1rem;
+    display: none;
+  }
+  .result-card.show { display: block; animation: fadein 0.3s ease; }
+  .result-bmi {
+    font-family: 'DM Serif Display', serif;
+    font-size: 72px;
+    letter-spacing: -3px;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .result-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .result-badge {
+    display: inline-block;
+    padding: 5px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 14px;
+  }
+  .result-meta {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+  }
+  .result-meta-item { font-size: 12px; color: var(--muted); }
+  .result-meta-item strong { display: block; font-size: 15px; color: var(--text); font-weight: 400; margin-top: 2px; }
+
+  /* Error */
+  .error-msg {
+    font-size: 13px;
+    color: var(--danger);
+    margin-top: 8px;
+    display: none;
+    padding: 8px 12px;
+    background: var(--danger-dim);
+    border-radius: var(--radius-sm);
+  }
+  .error-msg.show { display: block; }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+  }
+  .stat-label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .stat-value { font-family: 'DM Serif Display', serif; font-size: 36px; color: var(--text); margin-top: 4px; letter-spacing: -1px; }
+  .stat-value.accent { color: var(--accent); }
+
+  /* Search bar */
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .search-bar input { flex: 1; }
+  .search-bar button {
+    padding: 0 20px;
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border2);
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.18s;
+    white-space: nowrap;
+  }
+  .search-bar button:hover { background: var(--surface2); }
+  .search-bar button.accent-btn {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: rgba(200,245,100,0.2);
+  }
+
+  /* Records table */
+  .records-wrap {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .records-table { width: 100%; border-collapse: collapse; }
+  .records-table th {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 14px 20px;
+    border-bottom: 0.5px solid var(--border);
+    font-weight: 400;
+  }
+  .records-table td {
+    padding: 14px 20px;
+    font-size: 14px;
+    border-bottom: 0.5px solid var(--border);
+    vertical-align: middle;
+  }
+  .records-table tr:last-child td { border-bottom: none; }
+  .records-table tr { transition: background 0.15s; }
+  .records-table tr:hover td { background: var(--surface2); }
+  .records-table td:first-child { color: var(--muted); font-size: 12px; }
+
+  .bmi-cell { font-family: 'DM Serif Display', serif; font-size: 22px; letter-spacing: -0.5px; }
+
+  .pill {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .pill-under { background: var(--blue-dim); color: var(--blue); }
+  .pill-normal { background: var(--accent-dim); color: var(--accent); }
+  .pill-over { background: var(--amber-dim); color: var(--amber); }
+  .pill-obese { background: var(--danger-dim); color: var(--danger); }
+
+  .del-btn {
+    border: 0.5px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.18s;
+  }
+  .del-btn:hover { background: var(--danger-dim); color: var(--danger); border-color: rgba(255,107,107,0.3); }
+
+  .empty-state {
+    padding: 3rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .empty-state .empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.4; }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem; right: 2rem;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 12px 18px;
+    font-size: 14px;
+    z-index: 999;
+    display: none;
+    animation: slidein 0.25s ease;
+  }
+  .toast.show { display: block; }
+  .toast.success { border-color: rgba(200,245,100,0.3); color: var(--accent); }
+  .toast.fail { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+  @keyframes slidein { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { flex-direction: row; padding: 1rem; gap: 1rem; border-right: none; border-bottom: 0.5px solid var(--border); }
+    .brand-name { display: none; }
+    .nav { flex-direction: row; }
+    .sidebar-footer { display: none; }
+    .main { padding: 1.5rem 1rem; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0d0f12" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 2a7 7 0 1 0 0 14A7 7 0 0 0 12 2z"/>
+          <path d="M12 9v3l2 2"/>
+          <path d="M4.5 19.5l1.5-1.5M19.5 19.5l-1.5-1.5M12 22v-2"/>
+        </svg>
+      </div>
+      <span class="brand-name">BMI Tracker</span>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" onclick="showPage('calc', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <rect x="3" y="3" width="18" height="18" rx="4"/>
+          <path d="M8 12h8M12 8v8"/>
+        </svg>
+        Calculate
+      </button>
+      <button class="nav-item" onclick="showPage('records', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+          <rect x="9" y="3" width="6" height="4" rx="1"/>
+          <path d="M9 12h6M9 16h4"/>
+        </svg>
+        Records
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="server-status">
+        <div class="status-dot"></div>
+        localhost:8080
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Calculate page -->
+    <div id="page-calc" class="page active">
+      <div class="page-header">
+        <h1 class="page-title">Calculate <em>your BMI</em></h1>
+        <p class="page-sub">Enter your measurements to get your body mass index</p>
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label>Unit system</label>
+          <div class="toggle">
+            <button class="toggle-btn active" id="btn-metric" onclick="setMetric(true)">Metric — kg &amp; m</button>
+            <button class="toggle-btn" id="btn-imperial" onclick="setMetric(false)">Imperial — lb &amp; in</button>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label id="lbl-weight">Weight (kg)</label>
+            <input type="number" id="inp-weight" placeholder="70" min="1" step="0.1" />
+          </div>
+          <div class="field">
+            <label id="lbl-height">Height (m)</label>
+            <input type="number" id="inp-height" placeholder="1.75" min="0.01" step="0.01" />
+          </div>
+        </div>
+
+        <div id="calc-error" class="error-msg"></div>
+        <button class="btn" onclick="calcBMI()">Calculate &amp; Save</button>
+      </div>
+
+      <div class="result-card" id="result-card">
+        <div class="result-bmi" id="res-bmi">--</div>
+        <div class="result-label">Body Mass Index</div>
+        <div class="result-badge" id="res-badge"></div>
+        <div class="result-meta">
+          <div class="result-meta-item">Weight<strong id="res-weight">--</strong></div>
+          <div class="result-meta-item">Height<strong id="res-height">--</strong></div>
+          <div class="result-meta-item">System<strong id="res-system">--</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Records page -->
+    <div id="page-records" class="page">
+      <div class="page-header">
+        <h1 class="page-title">All <em>records</em></h1>
+        <p class="page-sub">Browse, search, and manage your BMI history</p>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Total records</div>
+          <div class="stat-value accent" id="st-total">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Average BMI</div>
+          <div class="stat-value" id="st-avg">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Latest BMI</div>
+          <div class="stat-value" id="st-last">--</div>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <input type="number" id="search-input" placeholder="Search by ID..." min="1" />
+        <button class="accent-btn" onclick="searchById()">Search</button>
+        <button onclick="loadRecords()">Show all</button>
+      </div>
+
+      <div class="records-wrap" id="records-wrap">
+        <div class="empty-state">
+          <div class="empty-icon">◎</div>
+          No records yet
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const BASE = 'http://localhost:8080/BMI';
+  let isMetric = true;
+  let cachedRecords = [];
+
+  function showPage(name, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (name === 'records') loadRecords();
+  }
+
+  function setMetric(val) {
+    isMetric = val;
+    document.getElementById('btn-metric').classList.toggle('active', val);
+    document.getElementById('btn-imperial').classList.toggle('active', !val);
+    document.getElementById('lbl-weight').textContent = val ? 'Weight (kg)' : 'Weight (lb)';
+    document.getElementById('lbl-height').textContent = val ? 'Height (m)' : 'Height (in)';
+    document.getElementById('inp-height').placeholder = val ? '1.75' : '69';
+    document.getElementById('inp-height').step = val ? '0.01' : '1';
+    document.getElementById('inp-weight').placeholder = val ? '70' : '154';
+  }
+
+  function getCat(bmi) {
+    if (bmi < 18.5) return { label: 'Underweight', cls: 'pill-under' };
+    if (bmi <= 24.9) return { label: 'Normal weight', cls: 'pill-normal' };
+    if (bmi <= 29.9) return { label: 'Overweight', cls: 'pill-over' };
+    return { label: 'Obese', cls: 'pill-obese' };
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => t.className = 'toast', 2800);
+  }
+
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function clearError(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  async function calcBMI() {
+    const w = parseFloat(document.getElementById('inp-weight').value);
+    const h = parseFloat(document.getElementById('inp-height').value);
+    clearError('calc-error');
+
+    if (!w || !h || w <= 0 || h <= 0) {
+      showError('calc-error', 'Please enter a valid weight and height.');
+      return;
+    }
+
+    try {
+      const res = await fetch(BASE + '/calc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weight: w, height: h, metric: isMetric })
+      });
+      if (!res.ok) throw new Error('Server returned ' + res.status);
+      const bmi = await res.json();
+      displayResult(bmi, w, h);
+      showToast('BMI calculated and saved!', 'success');
+    } catch (e) {
+      showError('calc-error', 'Cannot reach server. Make sure Spring Boot is running. (' + e.message + ')');
+    }
+  }
+
+  function displayResult(bmi, w, h) {
+    const rounded = Math.round(bmi * 10) / 10;
+    const cat = getCat(rounded);
+    const unit = isMetric ? 'Metric' : 'Imperial';
+    const wUnit = isMetric ? 'kg' : 'lb';
+    const hUnit = isMetric ? 'm' : 'in';
+
+    document.getElementById('res-bmi').textContent = rounded.toFixed(1);
+    const badge = document.getElementById('res-badge');
+    badge.textContent = cat.label;
+    badge.className = 'result-badge ' + cat.cls;
+    document.getElementById('res-weight').textContent = w + ' ' + wUnit;
+    document.getElementById('res-height').textContent = h + ' ' + hUnit;
+    document.getElementById('res-system').textContent = unit;
+
+    document.getElementById('result-card').classList.add('show');
+  }
+
+  async function loadRecords() {
+    const wrap = document.getElementById('records-wrap');
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">◌</div>Loading...</div>';
+    try {
+      const res = await fetch(BASE + '/allBMI');
+      if (!res.ok) throw new Error('Server returned ' + res.status);
+      const data = await res.json();
+      cachedRecords = Array.isArray(data) ? data : [data];
+      renderRecords(cachedRecords);
+    } catch (e) {
+      wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">✕</div>Cannot reach server. Is Spring Boot running?</div>';
+    }
+  }
+
+  function renderRecords(records) {
+    const wrap = document.getElementById('records-wrap');
+    updateStats(records);
+
+    if (!records || !records.length) {
+      wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">◎</div>No records found</div>';
+      return;
+    }
+
+    const rows = records.map(r => {
+      const bmiVal = parseFloat(r.bmi || r.BMI || 0);
+      const cat = getCat(bmiVal);
+      const unit = r.metric ? 'Metric' : 'Imperial';
+      const wU = r.metric ? 'kg' : 'lb';
+      const hU = r.metric ? 'm' : 'in';
+      return `<tr>
+        <td>#${r.id}</td>
+        <td><span class="bmi-cell">${bmiVal.toFixed(1)}</span></td>
+        <td><span class="pill ${cat.cls}">${cat.label}</span></td>
+        <td>${r.weight} ${wU}</td>
+        <td>${r.height} ${hU}</td>
+        <td>${unit}</td>
+        <td><button class="del-btn" onclick="deleteRecord(${r.id})">Delete</button></td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<table class="records-table">
+      <thead><tr>
+        <th>ID</th><th>BMI</th><th>Category</th><th>Weight</th><th>Height</th><th>System</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  function updateStats(records) {
+    document.getElementById('st-total').textContent = records.length;
+    if (!records.length) {
+      document.getElementById('st-avg').textContent = '--';
+      document.getElementById('st-last').textContent = '--';
+      return;
+    }
+    const vals = records.map(r => parseFloat(r.bmi || r.BMI || 0));
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    document.getElementById('st-avg').textContent = avg.toFixed(1);
+    document.getElementById('st-last').textContent = vals[vals.length - 1].toFixed(1);
+  }
+
+  async function deleteRecord(id) {
+    try {
+      const res = await fetch(BASE + '/delete/' + id, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Server returned ' + res.status);
+      showToast('Record #' + id + ' deleted', 'success');
+      loadRecords();
+    } catch (e) {
+      showToast('Delete failed: ' + e.message, 'fail');
+    }
+  }
+
+  function searchById() {
+    const id = document.getElementById('search-input').value.trim();
+    if (!id) { loadRecords(); return; }
+    const found = cachedRecords.filter(r => String(r.id) === id);
+    renderRecords(found);
+  }
+</script>
+</body>
+</html>
